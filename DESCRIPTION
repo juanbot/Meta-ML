@@ -7,7 +7,7 @@ Maintainer: Rafael Jordá <rafajorda.rj@gmail.com>
 Description: This package trains genomic data to obtain various models,
              which outputs are later used to train a new meta-model.
              To improve the results, genotype can be added to the meta-dataset.
-Depends: R (>= 3.5.2)
+Depends: R (>= 3.5)
 License: Creative Commons
 Encoding: UTF-8
 LazyData: true
