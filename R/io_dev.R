@@ -46,7 +46,8 @@ selectLearnEval = function(geno="~/Dropbox/data/mlongenetics/repos/HBS_V3",
                            clLogPath="~/launch/",
                            caretPath="/home/jbotia/caret/pkg/caret/",
                            clParams=" -l h_rt=96:0:0 -l tmem=3G,h_vmem=3G ",
-                           forcePRSice=F){
+                           forcePRSice=F,
+                           lazy=F){
 
   h = getHandlerToGenotypeData(geno=geno,
                                covs=covs,
@@ -63,7 +64,7 @@ selectLearnEval = function(geno="~/Dropbox/data/mlongenetics/repos/HBS_V3",
 
   hotrain = getHandlerFromFold(handler=holdout,type="train",index=1)
   hotest = getHandlerFromFold(handler=holdout,type="test",index=1)
-  hotrain = genDataFromHandler(genoHandler=hotrain)
+  hotrain = genDataFromHandler(genoHandler=hotrain,lazy=lazy)
 
   if(forcePRSice)
     h4 = mostRelevantSNPs(handler=hotrain,
