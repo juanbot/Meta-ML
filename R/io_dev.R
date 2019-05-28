@@ -1,5 +1,147 @@
 
 
+
+selectLearnEval = function(geno="~/Dropbox/data/mlongenetics/repos/HBS_V3",
+                           covs="~/Dropbox/data/mlongenetics/repos/HBS_covariates",
+                           predictor="PHENO_PLINK",
+                           id="IID",
+                           fid="FID",
+                           verify=F,
+                           path2plink="~/soft/",
+                           workPath="~/Dropbox/data/mlongenetics/repos/",
+                           pheno=paste0(workPath,"/pheno"),
+                           how="holdout",
+                           k=5,
+                           p=0.75,
+                           reduce="PRSICE",
+                           phenoScale="DISC",
+                           gwas="RISK_noSpain_MAF0.05.tab",
+                           gwasDef=" --beta --snp MarkerName --A1 Allele1 --A2 Allele2 --stat Effect --se StdErr --pvalue P-value",
+                           barLevels="5E-8,4E-8,3E-8,2E-8,1E-8,9E-7,8E-7,7E-7,6E-7,5E-7,4E-7,3E-7,2E-7,1E-7,9E-6,8E-6,7E-6,6E-6,5E-6,4E-6,3E-6,2E-6,1E-6,9E-5,8E-5,7E-5,6E-5,5E-5,4E-5,3E-5,2E-5,1E-5,9E-4,8E-4,7E-4,6E-4,5E-4,4E-4,3E-4,2E-4,1E-4,9E-3,8E-3,7E-3,6E-3,5E-3,4E-3,3E-3,2E-3,1E-3,9E-2,8E-2,7E-2,6E-2,5E-2,4E-2,3E-2,2E-2,1E-2,9E-1,8E-1,7E-1,6E-1,5E-1,4E-1,3E-1,2E-1,1E-1,1 ",
+                           slower,sinc,supper,
+                           SNPcolumnatGWAS="MarkerName",
+                           herit=NA,
+                           clumpField="P-value",
+                           clumpr2=0.1,
+                           clumpkb=250,
+                           prsiceseed=12345,
+                           addit="NA",
+                           path2gcta64=path2plink,
+                           cores=1,
+                           prune_windowSize=10000,
+                           prune_stepSize=1,
+                           prune_r2=0.1,
+                           path2PRSice=path2plink,
+                           PRSiceexe="PRSice_mac",
+                           path2GWAS=workPath,
+                           force=F,handler,
+                           outcome=c("cont","disc"),
+                           skipMLinit=F,
+                           ncores=4,
+                           learningAlgorithm="C5.0Tree",
+                           cvReps=5,
+                           gridSearch=5,
+                           imputeMissingData="median",
+                           useCluster=F,
+                           clLogPath="~/launch/",
+                           caretPath="/home/jbotia/caret/pkg/caret/",
+                           clParams=" -l h_rt=96:0:0 -l tmem=3G,h_vmem=3G ",
+                           forcePRSice=F){
+
+  h = getHandlerToGenotypeData(geno=geno,
+                               covs=covs,
+                               id=id,
+                               fid=fid,
+                               predictor=predictor,
+                               pheno=pheno)
+
+  holdout = getPartitionsFromHandler(genoHandler = h,
+                                     path2plink=path2plink,
+                                     workPath=workPath,
+                                     how=how,
+                                     p=p)
+
+  hotrain = getHandlerFromFold(handler=holdout,type="train",index=1)
+  hotest = getHandlerFromFold(handler=holdout,type="test",index=1)
+  hotrain = genDataFromHandler(genoHandler=hotrain)
+
+  if(forcePRSice)
+    h4 = mostRelevantSNPs(handler=hotrain,
+                          path2plink=path2plink,
+                          gwas=gwas,
+                          path2GWAS=path2GWAS,
+                          workPath=dirname(hotrain$geno),
+                          barLevels=barLevels,
+                          slower=slower,
+                          sinc=sinc,
+                          supper=supper,
+                          PRSiceexe=PRSiceexe,
+                          path2PRSice=path2PRSice,
+                          clumpField = clumpField,
+                          clumpkb=clumpkb,
+                          clumpr2=clumpr2,
+                          prsiceseed=prsiceseed,
+                          prune_windowSize=prune_windowSize,
+                          prune_stepSize=prune_stepSize,
+                          prune_r2=prune_r2,
+                          SNPcolumnatGWAS = SNPcolumnatGWAS,
+                          cores=cores)
+  else{
+    fprsice = paste0(workPath,"/SNPsHandler.rds")
+    if(!file.exists(fprsice)){
+      h4 = mostRelevantSNPs(handler=hotrain,
+                            path2plink=path2plink,
+                            gwas=gwas,
+                            path2GWAS=path2GWAS,
+                            workPath=dirname(hotrain$geno),
+                            barLevels=barLevels,
+                            slower=slower,
+                            sinc=sinc,
+                            supper=supper,
+                            PRSiceexe=PRSiceexe,
+                            path2PRSice=path2PRSice,
+                            clumpField = clumpField,
+                            clumpkb=clumpkb,
+                            clumpr2=clumpr2,
+                            prsiceseed=prsiceseed,
+                            prune_windowSize=prune_windowSize,
+                            prune_stepSize=prune_stepSize,
+                            prune_r2=prune_r2,
+                            SNPcolumnatGWAS = SNPcolumnatGWAS,
+                            cores=cores)
+      saveRDS(h4,fprsice)
+    }else
+      h4 = readRDS(fprsice)
+  }
+
+
+  h4 = getPRSiceResults(h4)
+
+  h5 = fromSNPs2MLdata(handler=h4,addit=addit,path2plink=path2plink)
+  hprime = simpleFromSNPs2MLdata(handler=hotest,addit=addit,path2plink=path2plink,fsHandler = h4)
+  h5$test1mldata = hprime$mldata
+
+  h6 = genoMLtrainAndTest(handler=h5,
+                          outcome=outcome,
+                          learningAlgorithm=learningAlgorithm,
+                          cvReps=cvReps,
+                          gridSearch=gridSearch,
+                          useCluster=useCluster,
+                          clLogPath=clLogPath,
+                          caretPath=caretPath,
+                          clParams=clParams)
+  return(h6)
+}
+
+getPRSiceResults = function(handler){
+  summaryFile = gsub("snpsToPull2","summary",handler$snpsToPull)
+  handler$prsicesummary = read.delim(summaryFile)
+  handler$prsicetests = read.delim(gsub("snpsToPull2","prsice",handler$snpsToPull))
+  handler$prsicesnps = read.delim(gsub("snpsToPull2","snp",handler$snpsToPull))
+  return(handler)
+
+}
+
 #' Title Getting a wrapper to plink files without using them directly
 #' A handler is a wrapper to plink files and it is useful to isolate
 #' the developer of managing such files so he/she can be focused on
@@ -27,7 +169,7 @@ getHandlerToGenotypeData = function(geno,
                                     pheno,
                                     verify=T,
                                     wp=dirname(pheno))
-  {
+{
 
   cat("Creating handler with genotype",geno,
       "covariates",covs,"predictor variable",
@@ -41,7 +183,7 @@ getHandlerToGenotypeData = function(geno,
   }
   stopifnot(file.exists(paste0(covs,".cov")))
   cdata = read.table(paste0(covs,".cov"),header = TRUE,stringsAsFactors=F)
-  #cat("Covariates are",paste0(colnames(cdata),collapse=", "),"\n")
+  cat("Covariates are",paste0(colnames(cdata),collapse=", "),"\n")
   phenofile = paste0(pheno, ".pheno")
   if(!file.exists(phenofile))
     stopifnot(predictor %in% colnames(cdata))
@@ -101,7 +243,7 @@ getHandlerFromFold = function(handler,type="train",index=1){
                                      predictor=handler$Class,
                                      id=handler$id,
                                      fid=handler$fid,
-                                     pheno=gsub(".pheno","",files$phenoFile),
+                                     pheno=gsub("\\.pheno","",files$phenoFile),
                                      verify=F)
   handler$father = father
   handler$fatherkey = key
@@ -138,10 +280,10 @@ verifyHandler = function(h,level=1){
 cleanHandler = function(h,level=1){
   if(!is.null(h$father)){
     cat("Removing handler files",paste0(h$geno,".bed"),", ",
-    paste0(h$geno,".bim"),", ",
-    paste0(h$geno,".fam"),", ",
-    paste0(h$covs,".cov"),"and",
-    paste0(h$pheno,".pheno"))
+        paste0(h$geno,".bim"),", ",
+        paste0(h$geno,".fam"),", ",
+        paste0(h$covs,".cov"),"and",
+        paste0(h$pheno,".pheno"))
 
     file.remove(paste0(h$geno,".bed"))
     file.remove(paste0(h$geno,".bim"))
@@ -273,10 +415,10 @@ getPartitionsFromHandler = function(genoHandler,
 #'
 #' @examples
 getPartitionsFromMLData = function(mldatafile,
-                                    workPath=NULL,
-                                    how="k-fold cv",
-                                    k=10,
-                                    p=0.75){
+                                   workPath=NULL,
+                                   how="k-fold cv",
+                                   k=10,
+                                   p=0.75){
 
   stopifnot(how == "k-fold cv" | how == "holdout")
   stopifnot(file.exists(mldatafile))
@@ -503,13 +645,22 @@ mostRelevantSNPs = function(handler,
                             path2gcta64=path2plink,
                             cores=1,
                             prune_windowSize=10000,
+                            prsiceseed=12345,
                             prune_stepSize=1,
                             prune_r2=0.1,
+                            gwasDef=" --beta --snp MarkerName --A1 Allele1 --A2 Allele2 --stat Effect --se StdErr --pvalue P-value",
                             path2PRSice=path2plink,
                             PRSiceexe="PRSice_linux",
                             workPath=NULL,
+                            barLevels="5E-8,4E-8,3E-8,2E-8,1E-8,9E-7,8E-7,7E-7,6E-7,5E-7,4E-7,3E-7,2E-7,1E-7,9E-6,8E-6,7E-6,6E-6,5E-6,4E-6,3E-6,2E-6,1E-6,9E-5,8E-5,7E-5,6E-5,5E-5,4E-5,3E-5,2E-5,1E-5,9E-4,8E-4,7E-4,6E-4,5E-4,4E-4,3E-4,2E-4,1E-4,9E-3,8E-3,7E-3,6E-3,5E-3,4E-3,3E-3,2E-3,1E-3,9E-2,8E-2,7E-2,6E-2,5E-2,4E-2,3E-2,2E-2,1E-2,9E-1,8E-1,7E-1,6E-1,5E-1,4E-1,3E-1,2E-1,1E-1,1 ",
+                            slower,
+                            sinc,
+                            supper,
+                            clumpr2=0.1,
+                            clumpkb=250,
                             path2GWAS,
-                            force=F){
+                            force=F,
+                            onlyPrefix=F){
 
   verifyHandler(handler)
   if(path2plink != "")
@@ -522,11 +673,12 @@ mostRelevantSNPs = function(handler,
     workPath=paste0(dirname(handler$pheno),"/")
   path2Genotype=paste0(dirname(handler$geno),"/")
   cov = basename(handler$covs)
-  
+
   ### options passed from list on draftCommandOptions.txt
   prefix=paste0("g-",geno,"-p-",pheno,"-c-",cov,"-a-",addit)
   fprefix = paste0(workPath,"/",prefix)  ##CAMBIAR
-
+  if(onlyPrefix)
+    return(fprefix)
   if(reduce == "PRUNE" || reduce == "DEFAULT"){
     command = paste0(path2plink,"plink --bfile ",path2Genotype,"/",geno," --indep-pairwise ",prune_windowSize," ",
                      prune_stepSize," ", prune_r2," --out ",fprefix,".temp")
@@ -616,19 +768,26 @@ mostRelevantSNPs = function(handler,
 
     ifelse(phenoScale == "DISC",binaryTarget <- T,binaryTarget <- F)
 
-    command = genPRSiceCommand(geno,
-                               pheno,
-                               covstr,
-                               path2PRSice,
-                               PRSiceexe,
-                               cores,
-                               fprefix,
-                               path2Genotype,
-                               path2GWAS,
-                               gwas,
-                               binaryTarget,
-                               gwasDef=" --beta --snp MarkerName --A1 Allele1 --A2 Allele2 --stat Effect --se StdErr --pvalue P-value")
-                               #...)
+    command = genPRSiceCommand(geno=geno,
+                               pheno=pheno,
+                               covstr=covstr,
+                               path2PRSice=path2PRSice,
+                               PRSiceexe=PRSiceexe,
+                               cores=cores,
+                               fprefix=fprefix,
+                               path2Genotype=path2Genotype,
+                               path2GWAS=path2GWAS,
+                               gwas=gwas,
+                               binaryTarget=binaryTarget,
+                               barLevels = barLevels,
+                               gwasDef=gwasDef,
+                               slower=slower,
+                               sinc=sinc,
+                               supper=supper,
+                               seed=prsiceseed,
+                               clumpr2=clumpr2,
+                               clumpkb=clumpkb)
+    #...)
 
     cat("The command",command,"\n")
     mySystem(command)
@@ -641,7 +800,15 @@ mostRelevantSNPs = function(handler,
     cat("The command",command,"\n")
     thresh = as.numeric(system(command,intern=T))
 
-    command = clumpCommand(geno,gwas,thresh,fprefix,path2plink,path2Genotype,path2GWAS,SNPcolumnatGWAS,clumpField)
+    command = clumpCommand(geno=geno,gwas=gwas,
+                           thresh=thresh,fprefix=fprefix,
+                           path2plink=path2plink,path2Genotype=path2Genotype,
+                           path2GWAS=path2GWAS,
+                           SNPcolumnatGWAS=SNPcolumnatGWAS,
+                           clumpField=clumpField,
+                           clumpr2=clumpr2,
+                           clumpkb=clumpkb)
+
     #cat("The command",command,"\n")
     mySystem(command)
 
@@ -666,7 +833,68 @@ mostRelevantSNPs = function(handler,
     stop("The combination of parameters is not right")
 }
 
+simpleFromSNPs2MLdata = function(handler,addit,path2plink,fsHandler){
 
+  handler = genDataFromHandler(handler,lazy=T)
+  geno = basename(handler$geno)
+  pheno = basename(handler$pheno)
+  workPath=paste0(dirname(handler$pheno),"/")
+  path2Genotype=paste0(dirname(handler$geno),"/")
+  cov = basename(handler$covs)
+  prefix <- paste("g",geno,"p",pheno,"c",cov,"a",addit, sep = "-")
+
+  print(handler$snpsToPull)
+  print(fsHandler$snpsToPull)
+  cat("We are going to generate a SNP list from a SNP pool selected outside this handler\n")
+  command = paste0(path2plink,"plink --bfile ",workPath,geno," --extract ",
+                   fsHandler$snpsToPull," --recode A --out ",workPath,prefix,".reduced_genos")
+  mySystem(command)
+  command = paste0("cut -f 1 ",fsHandler$snpsToPull," > ",workPath,prefix,".reduced_genos_snpList")
+  mySystem(command)
+  handler$snpsToPull = fsHandler$snpsToPull
+
+  ## load packages
+  library("data.table")
+  ### now decide what to merge
+  genoPheno <- 2
+  addCov <- ifelse(cov == "NA", 0, 1)
+  addAddit <- ifelse(addit == "NA", 0, 1)
+  nFiles <- genoPheno + addCov + addAddit # this specifies the number of files to merge
+  print(paste("MERGING ", nFiles," FILES", sep = ""))
+  genotypeInput <- paste(workPath,prefix, ".reduced_genos.raw", sep = "")
+  print(genotypeInput)
+  phenoInput <- paste(workPath,pheno, ".pheno", sep = "")
+  covInput <- paste(workPath,cov, ".cov", sep = "")
+  additInput <- paste(workPath,addit, ".addit", sep = "")
+
+  genosRaw <- fread(genotypeInput)
+  phenoRaw <- fread(phenoInput)
+  genosRaw$ID <- paste(genosRaw$FID, genosRaw$IID, sep = "_")
+  phenoRaw$ID <- paste(phenoRaw$FID, phenoRaw$IID, sep = "_")
+  fname = paste(workPath,prefix,".dataForML", sep = "")
+  phenoRaw[, c("FID","IID") := NULL]
+  genosRaw[, c("FID","IID","MAT","PAT","SEX","PHENOTYPE") := NULL]
+
+  otherRaw <- fread(covInput)
+  otherRaw$ID <- paste(otherRaw$FID, otherRaw$IID, sep = "_")
+  otherRaw[, c("FID","IID") := NULL]
+  temp1 <- merge(phenoRaw, otherRaw, by = "ID")
+  temp2 <- merge(temp1, genosRaw, by = "ID")
+  names(temp2)[2] <- "PHENO"
+  fname = paste(workPath,prefix,".dataForML", sep = "")
+  fwrite(temp2, file = fname, quote = F, sep = "\t", row.names = F, na = NA)
+  temp = temp2
+
+
+  handler[["mldata"]] = fname
+  print("First 100 variable names for your file below, the rest are likely just more genotypes...")
+  print(head(names(temp), n = 100))
+  print("... and the last 100 variable names for your file below...")
+  print(tail(names(temp), n = 100))
+  print(paste("Your final file has ", length(temp$ID)," samples, and ", length(names(temp))," predictors for analysis", sep = ""))
+  return(handler)
+
+}
 
 #' Title
 #'
@@ -689,7 +917,7 @@ fromSNPs2MLdata = function(handler,addit,path2plink,fsHandler=NULL){
     #Then we have to pull SNPs as default
     fsHandler = handler
   }
-  
+
   if(!is.null(handler$nfolds)){
     modes = c("train","test")
   }else{
@@ -846,17 +1074,17 @@ fromSNPs2MLdata = function(handler,addit,path2plink,fsHandler=NULL){
 }
 
 trainAndTest = function(handler,
-                          outcome=c("cont","disc"),
-                          skipMLinit=F,
-                          ncores=1,
-                          learningAlgorithm="xgbTree",
-                          cvReps=10,
-                          gridSearch=30,
-                          imputeMissingData="median",
-                          useCluster=T,
-                          clLogPath="~/launch/",
-                          caretPath="/home/jbotia/caret/pkg/caret/",
-                          clParams=" -l h_rt=96:0:0 -l tmem=3G,h_vmem=3G "){
+                        outcome=c("cont","disc"),
+                        skipMLinit=F,
+                        ncores=1,
+                        learningAlgorithm="xgbTree",
+                        cvReps=10,
+                        gridSearch=30,
+                        imputeMissingData="median",
+                        useCluster=T,
+                        clLogPath="~/launch/",
+                        caretPath="/home/jbotia/caret/pkg/caret/",
+                        clParams=" -l h_rt=96:0:0 -l tmem=3G,h_vmem=3G "){
 
   #Is it a simple handler?
   stopifnot(!is.null(handler$plan))
@@ -868,8 +1096,8 @@ trainAndTest = function(handler,
     newhandler$trainmldata = handler$trainFolds$train1file
     newhandler$testmldata = handler$testFolds$test1file
     return(genoMLtrainAndTest(newhandler,outcome,skipMLinit,ncores,learningAlgorithm,cvReps,
-                       gridSearch,imputeMissingData,useCluster,clLogPath,caretPath,
-                       clParams))
+                              gridSearch,imputeMissingData,useCluster,clLogPath,caretPath,
+                              clParams))
   }else{
     evalhandlers = NULL
     for(i in 1:handler$nfolds){
@@ -880,8 +1108,8 @@ trainAndTest = function(handler,
       newhandler$testmldata = handler$testFoldFiles[[paste0("test",i)]]
       str(newhandler)
       evalhandlers[[i]] = genoMLtrainAndTest(newhandler,outcome,skipMLinit,ncores,learningAlgorithm,cvReps,
-                                gridSearch,imputeMissingData,useCluster,clLogPath,caretPath,
-                                clParams)
+                                             gridSearch,imputeMissingData,useCluster,clLogPath,caretPath,
+                                             clParams)
 
     }
   }
@@ -927,8 +1155,8 @@ genoMLtrainAndTest = function(handler,
                               clParams=" -l h_rt=96:0:0 -l tmem=3G,h_vmem=3G "){
 
   stopifnot(handler$nfolds == 1)
-  detach(package:caret, unload=TRUE)
   if(useCluster){
+    detach(package:caret, unload=TRUE)
     library(devtools)
     cat("Loading caret from...",caretPath,"\n")
     load_all(caretPath)
@@ -936,14 +1164,14 @@ genoMLtrainAndTest = function(handler,
   }else
     library(caret)
   library(plotROC)
-  prefix = basename(handler$trainmldata)
-  workPath = paste0(dirname(handler$trainmldata),"/")
+  prefix = basename(handler[["train1mldata"]])
+  workPath = paste0(dirname(handler[["train1mldata"]]),"/")
   options(bitmapType='cairo')
   expid = learningAlgorithm
   ## Parse args and start logging
   prefixout = paste0(prefix,"_",expid)
   cat("Starting ML data initialization\n")
-  train <- fread(handler$trainmldata, header = T)
+  train <- fread(handler[["train1mldata"]], header = T)
   ### set outcome as a factor, check missingness, then impute missing data and scale
   if(outcome == "disc"){
     train$PHENO[train$PHENO == 2] <- "DISEASE"
@@ -1020,12 +1248,7 @@ genoMLtrainAndTest = function(handler,
 
 
   cat("Processing discrete stuff\n")
-  ## pick best model from model compare then output plots in this case, its picked via ROC,
-  # maximizing the mean AUC across resamplings
-  bestAlgorithm <- learningAlgorithm
-  write.table(bestAlgorithm, file = paste(workPath,prefixout,"_bestModel.algorithm",sep = ""),
-              quote = F, row.names = F, col.names = F) # exports "method" option for the best algorithm
-  handler$bestAlgorithm = bestAlgorithm
+  handler$bestAlgorithm = learningAlgorithm
   handler$bestModel = model
   bestModel <- model
 
@@ -1035,7 +1258,6 @@ genoMLtrainAndTest = function(handler,
   train_processed$predictedBinomial <- ifelse(train_processed$predicted == "DISEASE", 1, 0)
   trained <- train_processed[,c("PHENO","predicted","probDisease","diseaseBinomial","predictedBinomial")]
   trained$ID <- train$ID
-  write.table(trained, file = paste(workPath,prefixout,"_trainingSetPredictions.tab",sep =""), quote = F, sep = "\t", row.names = F)
   handler$trainingPredictions = trained
   overlayedRocs <- ggplot(trained, aes(d = diseaseBinomial, m = probDisease)) + geom_roc(labels = FALSE) + geom_rocci() + style_roc(theme = theme_gray) + theme_bw() + scale_fill_brewer(palette="Spectral")
   ggsave(plot = overlayedRocs, filename = paste(workPath,prefixout,"_plotRoc.png",sep =""), width = 8, height = 5, units = "in", dpi = 300)
@@ -1049,12 +1271,12 @@ genoMLtrainAndTest = function(handler,
   handler$confMat = confMat
 
   #Let us check headers
-  checkVariantNames(handler$trainmldata,handler$testmldata)
+  checkVariantNames(handler[["train1mldata"]],handler[["test1mldata"]])
   ## Load dataset
-  train <- fread(handler$testmldata, header = T)
-  testprefix = basename(handler$testmldata)
+  train <- fread(handler[["test1mldata"]], header = T)
+  testprefix = basename(handler[["test1mldata"]])
   testAddit = "NA"
-  workPath=paste0(dirname(handler$testmldata),"/")
+  workPath=paste0(dirname(handler[["test1mldata"]]),"/")
   print(paste("DATA PREEFIX file for VALIDATION set as ", testprefix, sep = ""))
   print(paste("ANOTHER LEVEL OF IMPUTATION AND DATA TRANSFORMATION USING ", imputeMissingData, sep = ""))
 
@@ -1074,7 +1296,6 @@ genoMLtrainAndTest = function(handler,
   trained <- train_processed[,c("PHENO","predicted","probDisease","diseaseBinomial","predictedBinomial")]
   trained$ID <- ID
   handler$evalPredictions = trained
-  write.table(trained, file = paste(workPath,testprefix,"_validation_predictions.tab",sep =""), quote = F, sep = "\t", row.names = F)
   overlayedRocs <- ggplot(trained, aes(d = diseaseBinomial, m = probDisease)) + geom_roc(labels = FALSE) + geom_rocci() + style_roc(theme = theme_gray) + theme_bw() + scale_fill_brewer(palette="Spectral")
   ggsave(plot = overlayedRocs, filename = paste(workPath,testprefix,"_validation_plotRoc.png",sep =""), width = 8, height = 5, units = "in", dpi = 300)
   densPlot <- ggplot(trained, aes(probDisease, fill = PHENO, color = PHENO)) + geom_density(alpha = 0.5) + theme_bw()
@@ -1101,7 +1322,19 @@ genPRSiceCommand = function(geno,
                             gwas,
                             binaryTarget,
                             barLevels="5E-8,4E-8,3E-8,2E-8,1E-8,9E-7,8E-7,7E-7,6E-7,5E-7,4E-7,3E-7,2E-7,1E-7,9E-6,8E-6,7E-6,6E-6,5E-6,4E-6,3E-6,2E-6,1E-6,9E-5,8E-5,7E-5,6E-5,5E-5,4E-5,3E-5,2E-5,1E-5,9E-4,8E-4,7E-4,6E-4,5E-4,4E-4,3E-4,2E-4,1E-4,9E-3,8E-3,7E-3,6E-3,5E-3,4E-3,3E-3,2E-3,1E-3,9E-2,8E-2,7E-2,6E-2,5E-2,4E-2,3E-2,2E-2,1E-2,9E-1,8E-1,7E-1,6E-1,5E-1,4E-1,3E-1,2E-1,1E-1,1 ",
-                            gwasDef=" --beta --snp SNP --A1 A1 --A2 A2 --stat b --se se --pvalue p"){
+                            gwasDef=" --beta --snp SNP --A1 A1 --A2 A2 --stat b --se se --pvalue p",
+                            slower=slower,
+                            sinc=sinc,
+                            supper=supper,
+                            seed,
+                            clumpr2=0.1,
+                            clumpkb=250){
+
+  if(is.null(barLevels)){
+    barLevelsStr = paste0("--lower ",slower," --upper ",supper," --interval ",sinc)
+  }
+  else
+    barLevelsStr = paste0(" --bar-levels ",barLevels)
 
   return(paste0("Rscript ",path2PRSice,"PRSice.R --binary-target T --prsice ",path2PRSice,PRSiceexe,
                 " -n ",
@@ -1109,7 +1342,10 @@ genPRSiceCommand = function(geno,
                 path2Genotype,"/",geno," -b ",
                 path2GWAS,"/",gwas,covstr,
                 " --print-snp --score std --perm 10000 ",
-                " --bar-levels ",barLevels,
+                barLevelsStr,
+                " --seed ",seed,
+                " --clump-r2 ",clumpr2,
+                " --clump-kb ",clumpkb,
                 " --fastscore --binary-target ",binaryTarget,
                 gwasDef))
 
@@ -1117,20 +1353,31 @@ genPRSiceCommand = function(geno,
 
 
 
-clumpCommand = function(geno,gwas,thresh,fprefix,path2plink,path2Genotype,path2GWAS,SNPcolumnatGWAS,clumpField){
+clumpCommand = function(geno,
+                        gwas,
+                        thresh,
+                        fprefix,
+                        path2plink,
+                        path2Genotype,
+                        path2GWAS,
+                        SNPcolumnatGWAS,
+                        clumpField,
+                        clumpr2=0.1,
+                        clumpkb=250){
+
   return(paste0(path2plink,"plink --bfile ",path2Genotype,"/",geno," --extract ",
                 fprefix,".temp.snpsToPull --clump ",path2GWAS,"/",gwas,
                 " --clump-p1 ",thresh," --clump-p2 ",thresh,
-                " --clump-snp-field ",SNPcolumnatGWAS," --clump-field ",clumpField," --clump-r2 0.1 --clump-kb 250 --out ",
-                fprefix,".tempClumps"))
+                " --clump-snp-field ",SNPcolumnatGWAS," --clump-field ",clumpField," --clump-r2 ",clumpr2,
+                " --clump-kb ",clumpkb," --out ",fprefix,".tempClumps"))
 
 
 }
 
 checkVariantNames = function(traindata,testdata){
 
-  cat("Checking possible change of main allele between train ",traindata,
-      " and test data ",testdata,"\n")
+  cat("Checking possible change of main allele between train data\n",traindata,
+      "\n and test data ",testdata,"\n")
   print(traindata)
   train = fread(traindata, header = T)
   test = fread(testdata,header=T)
