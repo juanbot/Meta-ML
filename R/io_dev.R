@@ -1,6 +1,63 @@
 
 
 
+#' Title
+#'
+#' @param geno Prefix for the genotype plink files
+#' @param covs Covariartes file for individuals in the `geno` plink files
+#' @param predictor The name of the variable to predict as it appears at the covariates file
+#' @param id The individual ID
+#' @param fid The family ID for the individual
+#' @param verify Verification of the Handler
+#' @param path2plink Path for finding the `plink` executable. If accessible from the PATH, set it to ""
+#' @param workPath Folder used to write everything
+#' @param pheno Prefix for the phenotype
+#' @param how
+#' @param k
+#' @param p
+#' @param reduce
+#' @param phenoScale
+#' @param gwas
+#' @param gwasDef
+#' @param barLevels
+#' @param slower
+#' @param sinc
+#' @param supper
+#' @param SNPcolumnatGWAS
+#' @param herit
+#' @param clumpField
+#' @param clumpr2
+#' @param clumpkb
+#' @param prsiceseed
+#' @param addit
+#' @param path2gcta64
+#' @param cores
+#' @param prune_windowSize
+#' @param prune_stepSize
+#' @param prune_r2
+#' @param path2PRSice
+#' @param PRSiceexe
+#' @param path2GWAS
+#' @param force
+#' @param handler
+#' @param outcome
+#' @param skipMLinit
+#' @param ncores
+#' @param learningAlgorithm
+#' @param cvReps
+#' @param gridSearch
+#' @param imputeMissingData
+#' @param useCluster
+#' @param clLogPath
+#' @param caretPath
+#' @param clParams
+#' @param forcePRSice
+#' @param lazy
+#'
+#' @return
+#' @export
+#'
+#' @examples
 selectLearnEval = function(geno="~/Dropbox/data/mlongenetics/repos/HBS_V3",
                            covs="~/Dropbox/data/mlongenetics/repos/HBS_covariates",
                            predictor="PHENO_PLINK",
@@ -908,6 +965,7 @@ simpleFromSNPs2MLdata = function(handler,addit,path2plink,fsHandler){
 #' @return
 #' @export
 #'
+#'
 #' @examples
 fromSNPs2MLdata = function(handler,addit,path2plink,fsHandler=NULL){
 
@@ -999,8 +1057,8 @@ fromSNPs2MLdata = function(handler,addit,path2plink,fsHandler=NULL){
       covInput <- paste(workPath,cov, ".cov", sep = "")
       additInput <- paste(workPath,addit, ".addit", sep = "")
 
-      genosRaw <- fread(genotypeInput)
-      phenoRaw <- fread(phenoInput)
+      genosRaw <- data.table(fread(genotypeInput))
+      phenoRaw <- data.table(fread(phenoInput))
       genosRaw$ID <- paste(genosRaw$FID, genosRaw$IID, sep = "_")
       phenoRaw$ID <- paste(phenoRaw$FID, phenoRaw$IID, sep = "_")
       fname = paste(workPath,prefix,".dataForML", sep = "")
@@ -1019,8 +1077,8 @@ fromSNPs2MLdata = function(handler,addit,path2plink,fsHandler=NULL){
       ### run for studies that have all geno, pheno, cov and addit data availible, ie nFiles = 4
       if(nFiles == 4)
       {
-        covRaw <- fread(covInput)
-        additRaw <- fread(additInput)
+        covRaw <- data.table(fread(covInput))
+        additRaw <- data.table(fread(additInput))
         covRaw$ID <- paste(covRaw$FID, covRaw$IID, sep = "_")
         additRaw$ID <- paste(additRaw$FID, additRaw$IID, sep = "_")
         covRaw[, c("FID","IID") := NULL]
@@ -1052,7 +1110,7 @@ fromSNPs2MLdata = function(handler,addit,path2plink,fsHandler=NULL){
       ### run for studies that have all geno, pheno and addit data availible (cov is missing), ie nFiles = 3
       if(nFiles == 3 & cov == "NA")
       {
-        otherRaw <- fread(additInput)
+        otherRaw <- data.table(fread(additInput))
         otherRaw$ID <- paste(otherRaw$FID, otherRaw$IID, sep = "_")
         otherRaw[, c("FID","IID") := NULL]
         temp1 <- merge(phenoRaw, otherRaw, by = "ID")

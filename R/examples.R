@@ -62,9 +62,9 @@ myTestClumpingKBs = function(){
   res
 }
 
-myTestClumpingR2 = function(){
+myTestClumpingR2 = function(r2s = c(0.01,0.05,0.1,0.2)){
   options(scipen=999)
-  r2s = c(0.01,0.05,0.1,0.2)
+
 
   res = NULL
   index = 1
