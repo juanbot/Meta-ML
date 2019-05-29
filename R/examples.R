@@ -65,16 +65,40 @@ myTestClumpingKBs = function(){
 myTestClumpingR2 = function(r2s = c(0.01,0.05,0.1,0.2)){
   options(scipen=999)
 
-
   res = NULL
   index = 1
   for(r2 in r2s){
-    partial = selectLearnEval(clumpr2=r2,
+    partial = selectLearnEval(geno="~/Dropbox/data/mlongenetics/repos/HBS_V3",
+                              covs="~/Dropbox/data/mlongenetics/repos/HBS_covariates",
+                              predictor="PHENO_PLINK",
+                              clumpr2=r2,
                               prsiceseed = 123,
                               forcePRSice = T,
-                              barLevels=paste0(unlist(lapply(paste0("E-",seq(8,1,-1)),function(x){ paste0(seq(4,1,-2),x) })),collapse=","),
                               outcome="disc",
                               gwas="small.tab")
+    res[[index]] = partial
+    cat("Number of SNPs",partial$prsicesummary$Num_SNP,"\n")
+    print(partial$confMat$byClass)
+    print(partial$evalConfMat)
+    index = index + 1
+  }
+  res
+}
+
+myTestClumpingP = function(clumpps = c(10E-5,10E-4,10E-3,0.1)){
+  options(scipen=999)
+
+  res = NULL
+  index = 1
+  for(clumpp in clumpps){
+    partial = selectLearnEval(geno="~/Dropbox/data/mlongenetics/repos/HBS_V3",
+                              covs="~/Dropbox/data/mlongenetics/repos/HBS_covariates",
+                              predictor="PHENO_PLINK",
+                              clumpp=clumpp,
+                              prsiceseed = 123,
+                              forcePRSice = T,
+                              outcome="disc",
+                              gwas="RISK_noSpain_MAF0.05.tab")
     res[[index]] = partial
     cat("Number of SNPs",partial$prsicesummary$Num_SNP,"\n")
     print(partial$confMat$byClass)

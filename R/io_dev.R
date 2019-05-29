@@ -81,6 +81,7 @@ selectLearnEval = function(geno="~/Dropbox/data/mlongenetics/repos/HBS_V3",
                            clumpField="P-value",
                            clumpr2=0.1,
                            clumpkb=250,
+                           clumpp=1,
                            prsiceseed=12345,
                            addit="NA",
                            path2gcta64=path2plink,
@@ -92,10 +93,11 @@ selectLearnEval = function(geno="~/Dropbox/data/mlongenetics/repos/HBS_V3",
                            PRSiceexe="PRSice_mac",
                            path2GWAS=workPath,
                            force=F,handler,
-                           outcome=c("cont","disc"),
+                           outcome="disc",
                            skipMLinit=F,
                            ncores=4,
                            learningAlgorithm="C5.0Tree",
+                           maxSNP4Learning=5000,
                            cvReps=5,
                            gridSearch=5,
                            imputeMissingData="median",
@@ -139,6 +141,7 @@ selectLearnEval = function(geno="~/Dropbox/data/mlongenetics/repos/HBS_V3",
                           clumpField = clumpField,
                           clumpkb=clumpkb,
                           clumpr2=clumpr2,
+                          clumpp=clumpp,
                           prsiceseed=prsiceseed,
                           prune_windowSize=prune_windowSize,
                           prune_stepSize=prune_stepSize,
@@ -163,6 +166,7 @@ selectLearnEval = function(geno="~/Dropbox/data/mlongenetics/repos/HBS_V3",
                             clumpField = clumpField,
                             clumpkb=clumpkb,
                             clumpr2=clumpr2,
+                            clumpp=clumpp,
                             prsiceseed=prsiceseed,
                             prune_windowSize=prune_windowSize,
                             prune_stepSize=prune_stepSize,
@@ -176,6 +180,8 @@ selectLearnEval = function(geno="~/Dropbox/data/mlongenetics/repos/HBS_V3",
 
 
   h4 = getPRSiceResults(h4)
+  if(nrow(h4$prsicesnps) > maxSNP4Learning)
+    return(h4)
 
   h5 = fromSNPs2MLdata(handler=h4,addit=addit,path2plink=path2plink)
   hprime = simpleFromSNPs2MLdata(handler=hotest,addit=addit,path2plink=path2plink,fsHandler = h4)
@@ -718,6 +724,7 @@ mostRelevantSNPs = function(handler,
                             supper,
                             clumpr2=0.1,
                             clumpkb=250,
+                            clumpp=1,
                             path2GWAS,
                             force=F,
                             onlyPrefix=F){
@@ -819,8 +826,8 @@ mostRelevantSNPs = function(handler,
     cat("The covstr is",covstr,"\n")
     if(covstr != " "){
       covs = read.table(paste0(path2Genotype,"/",cov,".cov"),header=T,stringsAsFactors=F)
-      print(covs)
-      print(dim(covs))
+      #print(covs)
+      #print(dim(covs))
       if(ncol(covs) == 2)
         covstr = " "
     }
@@ -846,7 +853,8 @@ mostRelevantSNPs = function(handler,
                                supper=supper,
                                seed=prsiceseed,
                                clumpr2=clumpr2,
-                               clumpkb=clumpkb)
+                               clumpkb=clumpkb,
+                               clumpp=clumpp)
     #...)
 
     cat("The command",command,"\n")
@@ -1031,8 +1039,8 @@ fromSNPs2MLdata = function(handler,addit,path2plink,fsHandler=NULL){
 
       }else
         stop()
-      print(handler$snpsToPull)
-      print(fsHandler$snpsToPull)
+      #print(handler$snpsToPull)
+      #print(fsHandler$snpsToPull)
       if(handler$snpsToPull != fsHandler$snpsToPull){
         cat("We are going to generate a SNP list from a SNP pool selected outside this handler\n")
         command = paste0(path2plink,"plink --bfile ",workPath,geno," --extract ",
@@ -1389,6 +1397,7 @@ genPRSiceCommand = function(geno,
                             supper=supper,
                             seed,
                             clumpr2=0.1,
+                            clumpp=1,
                             clumpkb=250){
 
   if(is.null(barLevels)){
@@ -1407,6 +1416,7 @@ genPRSiceCommand = function(geno,
                 " --seed ",seed,
                 " --clump-r2 ",clumpr2,
                 " --clump-kb ",clumpkb,
+                " --clump-p ",clumpp,
                 " --fastscore --binary-target ",binaryTarget,
                 gwasDef))
 
