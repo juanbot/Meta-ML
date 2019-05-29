@@ -85,15 +85,15 @@ myTestClumpingR2 = function(r2s = c(0.01,0.05,0.1,0.2)){
   res
 }
 
-myTestClumpingP = function(clumpps = c(10E-5,10E-4,10E-3,0.1)){
+myTestClumpingP = function(clumpps = c(0.5,0.1,0.01)){
   options(scipen=999)
 
   res = NULL
   index = 1
   for(clumpp in clumpps){
-    partial = selectLearnEval(geno="~/Dropbox/data/mlongenetics/repos/HBS_V3",
-                              covs="~/Dropbox/data/mlongenetics/repos/HBS_covariates",
-                              predictor="PHENO_PLINK",
+    partial = selectLearnEval(geno="~/Dropbox/data/mlongenetics/repos/SpanishMAF0.05",
+                              covs="~/Dropbox/data/mlongenetics/repos/COVS_SPAIN",
+                              predictor="DISEASE",
                               clumpp=clumpp,
                               prsiceseed = 123,
                               forcePRSice = T,

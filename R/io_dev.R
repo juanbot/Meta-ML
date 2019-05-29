@@ -97,7 +97,7 @@ selectLearnEval = function(geno="~/Dropbox/data/mlongenetics/repos/HBS_V3",
                            skipMLinit=F,
                            ncores=4,
                            learningAlgorithm="C5.0Tree",
-                           maxSNP4Learning=5000,
+                           maxSNP4Learning=10000,
                            cvReps=5,
                            gridSearch=5,
                            imputeMissingData="median",
@@ -138,6 +138,7 @@ selectLearnEval = function(geno="~/Dropbox/data/mlongenetics/repos/HBS_V3",
                           supper=supper,
                           PRSiceexe=PRSiceexe,
                           path2PRSice=path2PRSice,
+                          maxSNP4Learning=maxSNP4Learning,
                           clumpField = clumpField,
                           clumpkb=clumpkb,
                           clumpr2=clumpr2,
@@ -167,6 +168,7 @@ selectLearnEval = function(geno="~/Dropbox/data/mlongenetics/repos/HBS_V3",
                             clumpkb=clumpkb,
                             clumpr2=clumpr2,
                             clumpp=clumpp,
+                            maxSNP4Learning=maxSNP4Learning,
                             prsiceseed=prsiceseed,
                             prune_windowSize=prune_windowSize,
                             prune_stepSize=prune_stepSize,
@@ -722,6 +724,7 @@ mostRelevantSNPs = function(handler,
                             slower,
                             sinc,
                             supper,
+                            maxSNP4Learning=10000,
                             clumpr2=0.1,
                             clumpkb=250,
                             clumpp=1,
@@ -883,6 +886,15 @@ mostRelevantSNPs = function(handler,
     command = paste0("cut -f 3 ",fprefix,".tempClumps.clumped > ",fprefix,".temp.snpsToPull2")
     #cat("The command",command,"\n")
     mySystem(command)
+
+    finalSNPs = fread(paste0(fprefix,".temp.snpsToPull2"))
+    if(nrow(finalSNPs) > maxSNP4Learning){
+      finalSNPs = finalSNPs[order(finalSNPs$P,decreasing=FALSE),]
+      finalSNPs = finalSNPs[1:maxSNP4Learning,]
+      command = paste0("mv ",fprefix,".temp.snpsToPull2 ",fprefix,".temp.snpsToPull2_unfiltered")
+      mySystem(command)
+      fwrite(finalSNPs,paste0(fprefix,".temp.snpsToPull2"),quote = F, sep = "\t", row.names = F, na = NA)
+    }
 
     command = paste0(path2plink,"plink --bfile ",path2Genotype,geno," --extract ",
                      fprefix,".temp.snpsToPull2 --recode A --out ",fprefix,".reduced_genos")
