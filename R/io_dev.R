@@ -180,7 +180,6 @@ selectLearnEval = function(geno="~/Dropbox/data/mlongenetics/repos/HBS_V3",
       h4 = readRDS(fprsice)
   }
 
-
   h4 = getPRSiceResults(h4)
   if(nrow(h4$prsicesnps) > maxSNP4Learning)
     return(h4)
@@ -205,7 +204,7 @@ getPRSiceResults = function(handler){
   summaryFile = gsub("snpsToPull2","summary",handler$snpsToPull)
   handler$prsicesummary = read.delim(summaryFile)
   handler$prsicetests = read.delim(gsub("snpsToPull2","prsice",handler$snpsToPull))
-  handler$prsicesnps = read.delim(gsub("snpsToPull2","snp",handler$snpsToPull))
+  handler$prsicesnps = read.delim(handler$snpsToPull)
   return(handler)
 
 }
